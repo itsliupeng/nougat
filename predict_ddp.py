@@ -24,9 +24,17 @@ import pypdf
 
 logging.basicConfig(level=logging.INFO)
 
+RANK = -1
+LOCAL_RANK = -1
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="offset of part index of format 'part-<part_index>'"
+    )
     parser.add_argument(
         "--batchsize",
         "-b",
@@ -83,7 +91,29 @@ def get_args():
         help="Provide page numbers like '1-4,7' for pages 1 through 4 and page 7. Only works for single PDF input.",
     )
     parser.add_argument("pdf", nargs="+", type=Path, help="PDF(s) to process.")
+    
     args = parser.parse_args()
+    
+    
+    # prerocess
+    global RANK
+    RANK = int(os.environ["RANK"])
+    LOCAL_RANK = int(os.environ['LOCAL_RANK'])
+    print(f"LOCAL_RANK {LOCAL_RANK}, rank {RANK}")
+    torch.cuda.set_device(LOCAL_RANK)
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(LOCAL_RANK)
+    
+    part_idx = args.offset + RANK
+    
+    pdfs_path = args.pdf[0]
+    assert pdfs_path.is_dir()
+    part_pdfs_path_str = os.path.join(str(pdfs_path), f"part_{part_idx}")
+    part_pdf_path = Path(part_pdfs_path_str)
+    assert part_pdf_path.is_dir()
+    args.pdf[0] = part_pdf_path
+    
+    print(f"processing {part_pdfs_path_str} in rank {RANK}")
+    
     if args.checkpoint is None or not args.checkpoint.exists():
         args.checkpoint = get_checkpoint(args.checkpoint, model_tag=args.model)
     if args.out is None:
@@ -124,6 +154,7 @@ def get_args():
 
 def main():
     args = get_args()
+        
     model = NougatModel.from_pretrained(args.checkpoint)
     model = move_to_device(model, bf16=not args.full_precision, cuda=args.batchsize > 0)
     if args.batchsize <= 0:
@@ -154,6 +185,11 @@ def main():
         datasets.append(dataset)
     if len(datasets) == 0:
         return
+
+    global RANK
+    print(f"len of datasets on rank {RANK} is {len(datasets)}")
+    
+    
     dataloader = torch.utils.data.DataLoader(
         ConcatDataset(datasets),
         batch_size=args.batchsize,
