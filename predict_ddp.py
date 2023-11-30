@@ -43,6 +43,12 @@ def get_args():
         help="Batch size to use.",
     )
     parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=4,
+        help="Num workers of dataloader",
+    )
+    parser.add_argument(
         "--checkpoint",
         "-c",
         type=Path,
@@ -189,11 +195,13 @@ def main():
     global RANK
     print(f"len of datasets on rank {RANK} is {len(datasets)}")
     
-    
     dataloader = torch.utils.data.DataLoader(
         ConcatDataset(datasets),
         batch_size=args.batchsize,
         shuffle=False,
+        num_workers=args.num_workers,
+        prefetch_factor=4,
+        pin_memory=True,
         collate_fn=LazyDataset.ignore_none_collate,
     )
 
