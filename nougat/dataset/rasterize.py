@@ -43,18 +43,30 @@ def rasterize_paper(
             pdf = pypdfium2.PdfDocument(pdf)
         if pages is None:
             pages = range(len(pdf))
-        renderer = pdf.render(
-            pypdfium2.PdfBitmap.to_pil,
-            page_indices=pages,
-            scale=dpi / 72,
-        )
-        for i, image in zip(pages, renderer):
+
+        # https://github.com/facebookresearch/nougat/pull/173
+        #
+        # renderer = pdf.render(
+        #     pypdfium2.PdfBitmap.to_pil,
+        #     page_indices=pages,
+        #     scale=dpi / 72,
+        # )
+        # for i, image in zip(pages, renderer):
+        #     if return_pil:
+        #         page_bytes = io.BytesIO()
+        #         image.save(page_bytes, "bmp")
+        #         pils.append(page_bytes)
+        #     else:
+        #         image.save((outpath / ("%02d.png" % (i + 1))), "png")
+        for i in pages:
+            image = pdf[i].render(scale=dpi / 72).to_pil()
             if return_pil:
                 page_bytes = io.BytesIO()
                 image.save(page_bytes, "bmp")
                 pils.append(page_bytes)
             else:
                 image.save((outpath / ("%02d.png" % (i + 1))), "png")
+
     except Exception as e:
         logging.error(e)
     if return_pil:
