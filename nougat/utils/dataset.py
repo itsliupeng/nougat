@@ -110,9 +110,9 @@ class LazyDataset(Dataset):
                 if image is not None:
                     _batch.append(x)
                 elif name:
-                    if i > 0:
+                    if i > 0 and len(_batch) > 0:
                         _batch[-1] = (_batch[-1][0], name)
-                    elif len(batch) > 1:
+                    elif len(batch) > 1 and len(batch[1]) > 0 and batch[1][0] is not None:
                         _batch.append((batch[1][0] * 0, name))
             if len(_batch) == 0:
                 return None, None
